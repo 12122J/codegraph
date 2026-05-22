@@ -1193,6 +1193,16 @@ export class QueryBuilder {
   }
 
   /**
+   * Get the most recent index timestamp across all tracked files.
+   */
+  getLastIndexedAt(): number | null {
+    const row = this.db.prepare('SELECT MAX(indexed_at) AS last_indexed_at FROM files').get() as {
+      last_indexed_at: number | null;
+    } | undefined;
+    return row?.last_indexed_at ?? null;
+  }
+
+  /**
    * Get files that need re-indexing (hash changed)
    */
   getStaleFiles(currentHashes: Map<string, string>): FileRecord[] {

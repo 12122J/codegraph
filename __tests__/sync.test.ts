@@ -49,6 +49,14 @@ describe('Sync Module', () => {
     });
 
     describe('getChangedFiles()', () => {
+      it('should report the most recent indexed timestamp', () => {
+        const lastIndexed = cg.getLastIndexedAt();
+
+        expect(lastIndexed).toEqual(expect.any(Number));
+        expect(lastIndexed).toBeGreaterThan(0);
+        expect(new Date(lastIndexed!).toISOString()).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      });
+
       it('should detect added files', () => {
         // Add a new file
         fs.writeFileSync(

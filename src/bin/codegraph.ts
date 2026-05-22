@@ -247,6 +247,39 @@ function createVerboseProgress(): (progress: { phase: string; current: number; t
   };
 }
 
+function toIsoTimestamp(timestamp: number | null | undefined): string | null {
+  if (timestamp == null) {
+    return null;
+  }
+  return new Date(timestamp).toISOString();
+}
+
+async function getConfiguredAgentCount(projectPath: string): Promise<number> {
+  const previousCwd = process.cwd();
+  try {
+    if (fs.existsSync(projectPath) && fs.statSync(projectPath).isDirectory()) {
+      process.chdir(projectPath);
+    }
+
+    const { detectAll } = await import('../installer/targets/registry');
+    const configuredTargets = new Set<string>();
+
+    for (const location of ['global', 'local'] as const) {
+      for (const { target, detection } of detectAll(location)) {
+        if (detection.alreadyConfigured) {
+          configuredTargets.add(target.id);
+        }
+      }
+    }
+
+    return configuredTargets.size;
+  } catch {
+    return 0;
+  } finally {
+    process.chdir(previousCwd);
+  }
+}
+
 /**
  * Print success message
  */
@@ -693,6 +726,8 @@ program
   .option('-j, --json', 'Output as JSON')
   .action(async (pathArg: string | undefined, options: { json?: boolean }) => {
     const projectPath = resolveProjectPath(pathArg);
+    const indexPath = getCodeGraphDir(projectPath);
+    const agentCount = options.json ? await getConfiguredAgentCount(projectPath) : 0;
     // The directory the user actually ran from, before walking up to the index
     // root. Used to detect when the resolved index lives in a different git
     // working tree (e.g. a nested worktree borrowing the main checkout's index).
@@ -702,7 +737,14 @@ program
     try {
       if (!isInitialized(projectPath)) {
         if (options.json) {
-          console.log(JSON.stringify({ initialized: false, projectPath }));
+          console.log(JSON.stringify({
+            initialized: false,
+            projectPath,
+            indexPath,
+            lastIndexed: null,
+            agentCount,
+            version: packageJson.version,
+          }));
           return;
         }
         console.log(chalk.bold('\nCodeGraph Status\n'));
@@ -718,12 +760,17 @@ program
       const changes = cg.getChangedFiles();
       const backend = cg.getBackend();
       const journalMode = cg.getJournalMode();
+      const lastIndexed = toIsoTimestamp(cg.getLastIndexedAt());
 
       // JSON output mode
       if (options.json) {
         console.log(JSON.stringify({
           initialized: true,
           projectPath,
+          indexPath,
+          lastIndexed,
+          agentCount,
+          version: packageJson.version,
           fileCount: stats.fileCount,
           nodeCount: stats.nodeCount,
           edgeCount: stats.edgeCount,

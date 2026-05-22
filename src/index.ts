@@ -690,6 +690,13 @@ export class CodeGraph {
     return this.queries.getAllFiles();
   }
 
+  /**
+   * Get the most recent index timestamp across all tracked files.
+   */
+  getLastIndexedAt(): number | null {
+    return this.queries.getLastIndexedAt();
+  }
+
   // ===========================================================================
   // Graph Query Methods
   // ===========================================================================
